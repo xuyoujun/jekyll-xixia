@@ -1,10 +1,10 @@
 ---
 layout: post
-title:  "Read Me"
-categories: Other
-tags: Other
-author: Xixia
-description: The read me page of jekyll-xixia.
+title:  "Meltdown and spectre"
+categories: security
+tags: archtecture
+author: xuyoujun
+description: 介绍最近CPU的漏洞.
 ---
 
 前言
