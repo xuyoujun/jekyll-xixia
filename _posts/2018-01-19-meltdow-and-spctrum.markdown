@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "Meltdown and spectre"
+title:  "Meltdown and Spectre"
 categories: security
 tags: archtecture
 author: xuyoujun
@@ -24,37 +24,38 @@ description: 介绍最近CPU的漏洞.
 
 &nbsp; &nbsp; 总的来说，cpu会提前一些指令，如果顺序执行的指令，则推测执行机制会预先执行一些随后的指令；如果是分支指令，则分支预测作出跳转预测，然后推测执行机制预先执行分支预测出的分支上的指令。预先执行的指令不一定会被commit,即不一定会影响处理器的状态，但是预先执行的指令会把一些数据加载到cache中，即使这些指令最终没有commit。按理说，对于预先执行但是最终没有commit的指令，应该把其引起的被加载到cache中的数据flush出cache(或invalid)，令人遗憾的是，cpu并没有这样做，这是这次漏洞利用的条件之二。
 
-&nbsp; &nbsp; 至于为什么在发现推测执行的指令不对时，没有把这些指令引起的被加载进cache的数据flush掉，我想还是处于性能的考虑，这些数据都已经在cache中了了，万一以后需要用到的时候，就可以直接使用，不用再从memeory中取数据。
+&nbsp; &nbsp; 至于为什么在cpu发现推测执行的指令不对时，没有把这些指令引起的被加载进cache的数据flush掉，应该还是处于性能的考虑，这些数据都已经在cache中了，万一以后需要用到的时候，就可以直接使用，不用再从memeory中取数据。
 
 简单的例子
 ==============
 &nbsp; &nbsp; 结合上面两个条件就可以猜测出一个地址处的数据,如下面的代码所示，我们可以猜测变量a的值。现在假设我们不知道a的值，只知道a的地址放在变量p中，在函数victim_func()中，通过数组A解引用p，这时数组A的某一块数据被加载到了cache中，如果我们知道了数组A的第几块数据被加载进了cache，那么也就知道了p指向的数据为几。例如，我们知道了数组A的第5块数据被加载进了cache中，那么p指向的内容就为5。
 
-&nbsp; &nbsp; 根据上面描述的条件一，我们可以知道
+&nbsp; &nbsp; 根据上面描述的条件一，我们可以利用cache的命中与否造成的时间差来获取一个合法地址的内容，这里核心问题在于如何将cache的状态与地址内容建立起联系。下面的程序借助于一个数组实现将cache的状态装换成地址的内容，地址p的内容可能性有256种(一个字节)，数组A有256个数据块，用p的内容去索引数组A，被缓存进cache的数据块有256个选择，缓存的数据块和p的一种可能对应，这样就建立起了一一对应的关系，通过考察A的数据块在cache中的缓存情况，就可以确定p的值。
 
 ```
-	char a = 5;
-	char *p = &a;
-	int temp = 0;
-	int A[255 * BLOCK_SIZE];
+char a = 5;
+char *p = &a;
+int temp = 0;
+int A[256 * BLOCK_SIZE]; //BLOCK_SIZE可以取为cache块大小的倍数
 
-	viod victim_func(){
-		int i = 0;
-		temp &= A[(*p) * BLOCK_SIZE];
-		
-		for (i = 0; i < 255;i++){
-			time1 = __rdtscp();
-			temp &= A[i * BLOCK_SIZE];
-			gap = __rdtscp() - time1;
-		}
+viod victim_func(){
+	int i = 0;
+	temp &= A[(*p) * BLOCK_SIZE];
+	
+	for (i = 0; i < 255;i++){
+		time1 = __rdtscp();
+		temp &= A[i * BLOCK_SIZE];
+		gap = __rdtscp() - time1;
 	}
+}
 ```
+&nbsp; &nbsp; 利用条件一可以获取一个合法地址的内容，这是因为可以直接引用这个地址的值去引起cache的变化，从而推测出地址的内容。然后对于一些用户空间无法直接访问的地址，由于推测执行的存在，也可能存在cpu偷偷访问的情况存在，Meltdown和Spectre就是利用了cpu偷偷访问的行为。
 
 Meltdown
 ==============
 
 Spectre
-======
+==============
 
 
 参考文献
